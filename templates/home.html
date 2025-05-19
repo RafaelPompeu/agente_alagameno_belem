@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Fique informado sobre chuvas e alagamentos{% endblock %}
+{% block head %}
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    .busca-box {
+        max-width: 420px;
+        margin: 0 auto 1.5rem auto;
+    }
+    .chuva-card-icones i {
+        font-size: 1.6rem;
+        color: #2196f3;
+    }
+    .chuva-periodo {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+    .mapa-container {
+        height: 480px; /* aumentado */
+        width: 100%;
+    }
+    /* .alerta-risco {
+        background: #fff3cd;
+        border-left: 5px solid #ff9800;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+    } */
+    .justificativa-risco {
+        font-size: 1rem;
+        color: #555;
+        margin-bottom: 1.5rem;
+    }
+    @media (max-width: 768px) {
+        .mapa-container {
+            height: 220px;
+        }
+    }
+    /* Remover qualquer borda vermelha dos blocos principais */
+    .table-responsive, .card, .mapa-container {
+        border: none !important;
+        box-shadow: none !important;
+    }
+  </style>
+{% endblock %}
+{% block content %}
+<div class="text-center mb-4">
+    <i class="bi bi-cloud-drizzle-fill fs-1 text-primary"></i>
+    <h2 class="fw-bold mb-2">Fique informado sobre chuvas e alagamentos em Belém</h2>
+    <div class="alert alert-info mt-3" style="max-width:600px;margin:0 auto;">
+        <strong>Como funciona?</strong> O site utiliza agentes inteligentes para analisar automaticamente previsão de chuva, maré, altitude e pontos críticos, gerando alertas personalizados para Belém.
+    </div>
+</div>
+
+<!-- Removido bloco de tabela de risco de alagamento por bairro -->
+<!--
+<div class="mb-4">
+    <h4 class="fw-bold mb-3"><i class="bi bi-geo-alt-fill text-danger"></i> Risco de Alagamento por Bairro</h4>
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Bairro</th>
+                    <th>Tipos de Alagamento</th>
+                    <th>Alerta</th>
+                    <th>Justificativa</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bairros_alerta %}
+                <tr>
+                    <td>{{ b.bairro }}</td>
+                    <td>
+                        {% for tipo in b.tipos_alagamento %}
+                            <span class="badge bg-warning text-dark">{{ tipo }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ b.alerta_final }}</td>
+                    <td>{{ b.justificativa }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+-->
+
+<div class="row g-4 align-items-stretch">
+    <div class="col-lg-12">
+        <div class="mapa-container mb-3" id="map"></div>
+        <!-- Removido bloco detalhado de previsão, maré, pontos críticos e altitude -->
+        <!--
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2"><i class="bi bi-cloud-fill text-primary"></i> Previsão de Chuva Detalhada</h6>
+                <pre class="mb-2">{{ previsao_chuva_info }}</pre>
+                <h6 class="fw-bold mb-2"><i class="bi bi-water text-primary"></i> Tábua da Maré</h6>
+                <pre class="mb-2">{{ tabua_mare_info }}</pre>
+                <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill text-warning"></i> Pontos Críticos de Alagamento</h6>
+                <pre class="mb-2">{{ pontos_criticos_info }}</pre>
+                <h6 class="fw-bold mb-2"><i class="bi bi-geo-alt-fill text-danger"></i> Altitude Média do Bairro</h6>
+                <pre class="mb-0">{{ altitude_bairro_info }}</pre>
+            </div>
+        </div>
+        -->
+    </div>
+    <!-- Removido o card da direita (col-lg-5) -->
+</div>
+{% endblock %}
+{% block scripts %}
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const bairros_coords = {{ bairros_coords|tojson }};
+    const bairros_alerta = {{ bairros_alerta|tojson }};
+    const bairros_justificativas = {{ bairros_justificativas|tojson }};
+
+    var map = L.map('map').setView([-1.455, -48.49], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    bairros_alerta.forEach(function(bairro) {
+        const nome = bairro.bairro;
+        const tipos = bairro.tipos_alagamento || [];
+        const alerta = bairro.alerta_final;
+        const justificativa = bairros_justificativas[nome] || "";
+        const coord = bairros_coords[nome];
+        if (coord) {
+            const marker = L.circleMarker([coord.lat, coord.lng], {
+                radius: 10,
+                color: "orange",
+                fillColor: "orange",
+                fillOpacity: 0.7
+            }).addTo(map);
+            marker.bindPopup(
+                `<b>${nome}</b><br>
+                <b>Tipos de alagamento:</b> ${tipos.join(", ")}<br>
+                <b>Alerta:</b> ${alerta}<br>
+                <b>Justificativa:</b> ${justificativa}`
+            );
+            marker.on('click', function(e) {
+                marker.openPopup();
+            });
+        }
+    });
+
+    // Simula localização do usuário (azul)
+    var userMarker = L.circleMarker([-1.457, -48.485], {
+        radius: 10,
+        color: "#2196f3",
+        fillColor: "#2196f3",
+        fillOpacity: 0.8
+    }).addTo(map);
+    userMarker.bindPopup("Sua localização (simulada)");
+
+    window.addEventListener("resize", function() {
+        map.invalidateSize();
+    });
+  </script>
+{% endblock %}
